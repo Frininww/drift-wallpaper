@@ -12,14 +12,17 @@ Thumbnails load on demand, rather than preloading the full library. Their NSCach
 
 Pausing retains the current frame and player resources for quick resumption. It does not promise to release all decoder memory. Quitting releases the players and desktop windows.
 
-## What the app does not do
+## Quality controls
 
-- It does not cap the FPS or downscale an imported local file at playback time. Local files play at their encoded cadence and resolution. AVPlayerItem's preferredMaximumResolution is an HLS preference, not a local-file optimization, so Drift does not use it as one.
+- Original resolution and FPS are the defaults. They preserve source quality without a video compositor; high-resolution and high-FPS sources are not restricted to the lightweight demo's 720p / 24 FPS.
+- Resolution maximums are 1080p, 1440p and 4K. Frame-rate maximums are 24, 30, 60 and 120 FPS. Original does not impose either cap. The plan never upscales or increases source FPS.
+- A lower cap uses AVMutableVideoComposition renderSize / frameDuration only when it actually changes the source. Rotation and aspect ratio are preserved. A resolution-only cap retains source track timing. A frame-rate cap changes output cadence, not playback speed.
+- Video composition may add GPU work; lower output resolution does not necessarily reduce source decoding cost. No claim is made that a particular cap saves energy. AVPlayerItem's preferredMaximumResolution is an HLS preference and is not used to pretend to optimize local files.
 - It does not automatically transcode imports. Video quality and encoding determine much of the cost.
 - It does not claim a universal CPU, RAM or battery number.
 - It does not prevent the display from sleeping.
 
-For a lower-cost wallpaper, encode a short seamless H.264/HEVC loop at 1920×1080, 24–30 fps. The bundled demo is 1280×720, 24 fps, 8 seconds and contains no audio. The library flags videos above 2560×1600 or about 30 fps as potentially expensive.
+For a lower-cost wallpaper, encode a short seamless H.264/HEVC loop at 1920×1080, 24–30 fps. The default demo is 1280×720, 24 fps, 8 seconds. The optional Aurora 4K demo is 3840×2160, 60 fps, 8 seconds. Both are original and contain no audio. Higher-resolution and higher-FPS clips are labeled in the library. Actual smoothness also depends on display refresh rate and decoding/rendering performance.
 
 ## Reproducible manual checks
 
@@ -39,7 +42,13 @@ Use a release build, close the library window, and record Mac model, macOS versi
 | Remove selected clip / turn wallpapers off | Windows and queues are removed; system wallpaper reappears |
 | Quit Drift | No wallpaper windows, decoding, timers or helper processes remain |
 | Relaunch | Library, selection, fit and manual pause state persist |
+| Change English / Russian | Labels and menu actions update immediately; choice persists |
+| Load a 1.0 library | Media, selection, manual pause and display settings survive migration |
+| Click button edges | Full visible navigation and Add video shapes respond |
+| Aurora 4K, Original | 3840×2160 / 60 FPS, without an attached video composition |
+| Aurora 4K, 1080p / 30 FPS | 1920×1080 / 30 FPS, with unchanged playback speed |
+| 720p / 24 FPS with 4K / 120 limits | Stays 720p / 24 FPS, without extra composition |
 
 Occlusion is reported by macOS, which may count transparent or nonrectangular windows as visible. Stage Manager and Spaces behavior should be checked on each supported macOS release. The app intentionally avoids private APIs for desktop or lock-screen integration.
 
-Automated tests cover playback policy, pause precedence/recovery, independent display decisions, persistence, selection deletion, manifest versioning and path traversal rejection. GUI, energy and hardware/OS combinations still require the manual checks above.
+Automated tests cover pause policy, independent displays, persistence, 1.0 migration, deletion, manifest versioning, path traversal, quality planning, real 4K60 metadata, a rendered 1080p/30 frame and localization keys. Media tests need access to macOS video services. GUI, energy and hardware/OS combinations still require the manual checks above.

@@ -2,129 +2,126 @@
 
 # Drift
 
-### Рабочий стол, который дышит.
+### A little motion. A quieter desktop.
 
-Нативные видеообои для macOS. Спокойное движение, локальная библиотека и внимание к энергии.
+Native video wallpapers for macOS, with a local library, independent display controls and thoughtful energy management.
 
-![Tests](https://img.shields.io/badge/tests-14%20passed%20locally-bce899)
 ![macOS](https://img.shields.io/badge/macOS-13%2B-1c2433?logo=apple&logoColor=white)
 ![Swift](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 [![License: MIT](https://img.shields.io/badge/License-MIT-bce899)](LICENSE)
 
-[Скачать](https://github.com/Frininww/drift-wallpaper/releases/latest) · [English](docs/README.en.md) · [Оптимизация](docs/PERFORMANCE.md) · [Сообщить о проблеме](https://github.com/Frininww/drift-wallpaper/issues)
+[Download](https://github.com/Frininww/drift-wallpaper/releases/latest) · [Русский](docs/README.ru.md) · [Performance](docs/PERFORMANCE.md) · [Report an issue](https://github.com/Frininww/drift-wallpaper/issues)
 
-![Интерфейс Drift с обоями Aurora](docs/preview.png)
+![Drift’s English settings with language and playback-quality controls](docs/preview.png)
 
 </div>
 
-## Что умеет
+## Features
 
-- **Твои видео на рабочем столе.** Импорт локальных MP4, MOV и M4V; H.264 и HEVC поддерживаются средствами macOS. Оригинальное восьмисекундное видео Aurora уже включено.
-- **Умная пауза.** Каждый монитор останавливается, когда macOS сообщает, что его рабочий стол полностью закрыт окнами. Воспроизведение также приостанавливается во сне, при неактивном сеансе и серьёзном перегреве.
-- **Бережное отношение к аккумулятору.** По умолчанию учитывает режим энергосбережения. Отдельно можно включить паузу при работе от батареи.
-- **Несколько мониторов.** Общие выбранные обои, независимое воспроизведение и выключатель для каждого подключённого экрана.
-- **Нативное управление.** Библиотека на SwiftUI, пауза и выход из строки меню, режимы заполнения и вписывания, автозапуск по желанию.
-- **Без звука и сети.** В воспроизведение попадает только видеодорожка. Нет аккаунта, аналитики, рекламы, серверной части или сторонних зависимостей.
+- **Your videos, on your desktop.** Import local MP4, MOV and M4V files supported by macOS. H.264 and HEVC are recommended.
+- **English by default, Russian when you want it.** Switch in **Settings → Appearance → Language**. The interface, statuses, alerts and menu bar actions update immediately; the choice persists.
+- **Original source quality, including 4K and high FPS.** Choose Original, 1080p, 1440p or 4K resolution limits, and Original, 24, 30, 60 or 120 FPS limits. Actual output depends on your source, display and Mac.
+- **Two original Aurora demos.** Start with a lightweight 720p / 24 FPS loop, or add the 4K / 60 FPS version from Playback quality settings.
+- **Independent display playback.** The selected video plays on enabled monitors, with a separate player and automatic occlusion pause for each one.
+- **Energy-aware pauses.** Pauses on display/system sleep, inactive sessions, serious thermal pressure and, by default, Low Power Mode. Battery pause is optional.
+- **Native controls.** SwiftUI library, menu bar pause/quit, fill/fit scaling, persistent preferences and opt-in launch at login.
+- **Silent, local and private.** Only video enters the playback queue. No accounts, analytics, ads, network calls or third-party package dependencies.
 
-## Установка
+## Install
 
-**Нужно:** macOS 13 Ventura или новее, Mac с Apple Silicon либо Intel. Интерфейс пока на русском языке.
+**Requirements:** macOS 13 Ventura or later, Apple Silicon or Intel.
 
-1. Скачай `Drift-universal.zip` из [Releases](https://github.com/Frininww/drift-wallpaper/releases/latest).
-2. Распакуй и перемести **Drift.app** в **Программы / Applications**.
-3. Открой Drift. Aurora появится в библиотеке автоматически.
-4. Нажми **Добавить видео**, выбери локальный файл и нажми на его карточку.
+1. Download `Drift-universal.zip` from [Releases](https://github.com/Frininww/drift-wallpaper/releases/latest).
+2. Unzip it and move **Drift.app** to **Applications**.
+3. Open Drift. The lightweight Aurora demo is added automatically.
+4. Click **Add video**, choose a local file, then click its library card.
 
-**Подпись сборки:** опубликованная сборка имеет локальную ad-hoc подпись и не заверена Apple (notarization). При первом запуске macOS может заблокировать открытие. Если ты проверил источник и доверяешь сборке, используй **Системные настройки → Конфиденциальность и безопасность → Всё равно открыть**. Отключать Gatekeeper целиком не нужно. Альтернатива — собрать приложение из исходников.
+**Signing:** release builds are ad-hoc signed and **not notarized by Apple**. macOS may block the first launch. After verifying the source and checksum, allow it in **System Settings → Privacy & Security → Open Anyway**, or build from source. There is no need to disable Gatekeeper globally.
 
-Контрольная сумма архива находится в `SHA256SUMS.txt` того же релиза:
+The release includes `SHA256SUMS.txt`. Place it beside the archive and verify:
 
 ```sh
 shasum -a 256 -c SHA256SUMS.txt
 ```
 
-Drift не запрашивает доступ к записи экрана или универсальному доступу. Импортированные видео копируются в собственную локальную библиотеку; исходники остаются на месте.
+Screen Recording and Accessibility permissions are not required. Imported videos are copied into Drift’s local library; your originals stay untouched.
 
-## Как пользоваться
+## Controls
 
-| Действие | Где |
+| Action | Where |
 | --- | --- |
-| Выбрать обои | Нажать карточку в коллекции |
-| Поставить на паузу | Кнопка на обложке или значок Drift в строке меню |
-| Изменить масштаб | Настройки → Отображение |
-| Отключить один монитор | Настройки → Отображение → выключатель экрана |
-| Запускать при входе | Настройки → При запуске; macOS может попросить подтверждение |
-| Удалить видео | Правый клик по карточке → Удалить из библиотеки |
-| Вернуть обычные обои | Выключить обои в настройках или строке меню |
-| Полностью остановить Drift | Строка меню → Завершить Drift |
+| Apply a wallpaper | Click its card in Your collection |
+| Pause / resume | Cover button or Drift’s menu bar icon |
+| Switch English / Russian | Settings → Appearance → Language |
+| Change resolution / FPS | Settings → Playback quality |
+| Add the 4K / 60 FPS demo | Settings → Playback quality → Add 4K / 60 FPS demo |
+| Change fill / fit | Settings → Display |
+| Disable one monitor | Settings → Display → its switch |
+| Launch at login | Settings → Startup; macOS may require approval |
+| Remove an imported video | Right-click its card → Remove from library |
+| Reveal the system wallpaper | Turn wallpapers off in Settings or the menu bar |
+| Stop Drift completely | Menu bar → Quit Drift |
 
-Закрытие окна оставляет приложение в строке меню. Системные обои не заменяются: Drift размещает видео поверх них, под значками рабочего стола. После выхода снова видны обычные обои.
+Closing the library window keeps Drift in the menu bar. Drift places video underneath desktop icons and above your system wallpaper; it does not replace the system wallpaper setting. Quitting reveals the original wallpaper.
 
-## Почему это экономно
+## Resolution and frame rate
 
-Drift использует **AVFoundation + AVPlayerLayer**. Декодированием занимается macOS; аппаратное ускорение зависит от видео и модели Mac. Здесь нет Electron, встроенного браузера, собственного цикла отрисовки кадров и постоянного опроса окон.
+**Original** is the default for both controls. It retains the encoded resolution and cadence without adding a video compositor. A 4K / 60 or 120 FPS source can therefore keep its detail and frame rate when your Mac and display support it. Original does not impose a 4K or 120 FPS cap.
 
-Состояние обновляется по системным событиям: видимость окна, сон, питание, температура, энергосбережение и подключение экранов. Один плеер на включённый монитор позволяет ставить каждый экран на паузу отдельно. При выключении обоев и выходе очереди воспроизведения освобождаются.
+The other choices are **maximums**, not upscalers or frame interpolation. Selecting 4K / 120 FPS for a 720p / 24 FPS video still produces 720p / 24 FPS. Effective output is shown in settings. Resolution limits preserve orientation and aspect ratio; FPS limits do not change playback speed.
 
-**Разумный выбор видео:** H.264 или HEVC, 1080p, 24–30 кадров/с, короткая бесшовная петля. Демо Aurora — 720p, 24 кадра/с. Drift предупреждает о высоком разрешении и частоте кадров, но не перекодирует файлы и не ограничивает их FPS. Видео 4K/60 будет требовательнее; несколько мониторов тоже увеличивают нагрузку.
+Lower limits use an AVFoundation video composition when necessary. They may add processing and do not guarantee lower decoder cost; for energy savings, an efficiently encoded source is preferable. There is no offline transcoding, custom frame loop or fixed CPU/RAM/battery promise. See [performance and verification](docs/PERFORMANCE.md).
 
-Фиксированные обещания вроде «1% CPU» зависят от железа и контента. [Архитектура, ограничения и воспроизводимая проверка производительности →](docs/PERFORMANCE.md)
+## Build from source
 
-## Сборка из исходников
-
-Нужны **Xcode 16+** с установленными инструментами командной строки и **Swift 6+**. Зависимости скачивать не требуется.
+Requires **Xcode 16+**, its command line tools and **Swift 6+**. No package downloads are needed.
 
 ```sh
 git clone https://github.com/Frininww/drift-wallpaper.git
 cd drift-wallpaper
 swift test
-bash scripts/build-app.sh
+bash scripts/build-app.sh --universal
 open dist/Drift.app
 ```
 
-Универсальная сборка для Apple Silicon и Intel:
+Omit `--universal` to build for your current architecture. Open `Package.swift` in Xcode for development. The script packages the executable, video resources, English/Russian translations and icon, then signs and verifies the `.app`. A bare executable from `.build` needs its resource bundle alongside it.
 
-```sh
-bash scripts/build-app.sh --universal
-```
-
-Для разработки открой `Package.swift` в Xcode. Скрипт сборки создаёт полноценный `.app`, включает видео и иконку, добавляет подпись и проверяет её. Не стоит распространять один исполняемый файл из `.build`: ему нужен пакет ресурсов.
-
-Для подписи своим сертификатом:
+To use your own signing identity:
 
 ```sh
 SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" bash scripts/build-app.sh --universal
 ```
 
-Notarization и выпуск с Developer ID требуют собственного Apple Developer аккаунта и выполняются отдельно.
+Developer ID signing and notarization require your own Apple Developer account. Notarization is a separate step.
 
-## Устройство проекта
+## Project layout
 
 ```text
 Sources/
-  Drift/                SwiftUI, строка меню, импорт, окна и AVFoundation
-  DriftCore/            Правила паузы, модели и атомарное хранение библиотеки
-Tests/DriftCoreTests/    Тесты политики воспроизведения и сохранения
-Packaging/              Info.plist для приложения
-scripts/                Сборка .app, генерация иконки и оригинального демовидео
-docs/                   Интерфейс, производительность и документация
-docs/workflows/         Готовые шаблоны GitHub Actions для сборок и релизов
+  Drift/                 Native UI, localization, import, windows and video pipeline
+  DriftCore/             Pause policy, quality planning, models and atomic storage
+Tests/
+  DriftCoreTests/        Pause, migration, persistence and quality planning
+  DriftMediaTests/       Real 4K60 metadata, rendered output and translations
+Packaging/              App Info.plist
+scripts/                App build, icon and original demo generation
+docs/                   Russian README, performance notes and screenshots
+docs/workflows/         Optional GitHub Actions templates
 ```
 
-**Данные:** `~/Library/Application Support/Drift/`. В `library.json` хранятся настройки и список видео, в `Wallpapers/` — локальные копии. Сохранение атомарное. Если манифест повреждён, приложение сохраняет его резервную копию перед восстановлением библиотеки.
+**Data:** `~/Library/Application Support/Drift/`. `library.json` stores the library and preferences; `Wallpapers/` holds imported copies. Writes are atomic. Existing 1.0 libraries migrate without losing their selection or settings. Damaged manifests are backed up before recovery.
 
-## Ограничения
+GitHub Actions templates for tests, universal builds and releases are included under [docs/workflows](docs/workflows). To enable them, move the files into `.github/workflows/` and push with a credential that has `workflow` permission. They are inactive until installed.
 
-- Это видеообои рабочего стола. Экран блокировки и заставка macOS не меняются.
-- Поддерживаются локальные видео, которые умеет воспроизводить AVFoundation. Web-обои, YouTube, DRM, GIF и проекты Wallpaper Engine не поддерживаются.
-- Видимость определяет macOS: прозрачные окна, Stage Manager и разные версии Spaces могут влиять на момент автоматической паузы. Пауза вручную всегда доступна.
-- При паузе сохраняется последний кадр и ресурсы плеера для быстрого продолжения. Полностью освободить их можно выключением обоев или выходом.
-- Реальный расход CPU/GPU и энергии нужно измерять на конкретном Mac. Наличие тестов не заменяет проверку всех версий macOS и сочетаний мониторов.
+## Limits
 
-## Разработка и лицензия
+- Desktop wallpapers only: the lock screen and macOS screen saver are not modified.
+- Local videos playable by AVFoundation only. Web pages, streams, DRM, GIF and Wallpaper Engine projects are unsupported.
+- AppKit determines occlusion. Transparent windows, Spaces and Stage Manager may affect when automatic pause occurs.
+- Each enabled display has its own player. More displays can increase decoder work and memory use.
+- Pausing retains the current frame and player resources for quick resumption. Turn wallpapers off or quit to release them.
+- Actual quality, smoothness and energy use depend on the video, Mac, display and macOS version. A frame-rate option cannot exceed the physical refresh rate of your display.
 
-Предложения и исправления приветствуются. Перед изменениями посмотри [CONTRIBUTING.md](CONTRIBUTING.md).
+## Contributing and license
 
-В [docs/workflows](docs/workflows) есть готовые шаблоны GitHub Actions для тестов, универсальной сборки и релизов по тегам `v*`. Чтобы включить автоматизацию, перенеси их в `.github/workflows/` и отправь изменения через GitHub-подключение с правом `workflow`. До этого автосборки не запускаются; опубликованный первый релиз собран и проверен локально.
-
-Код, иконка и оригинальное видео Aurora распространяются по [MIT License](LICENSE). Сторонних обоев в репозитории нет.
+See [CONTRIBUTING.md](CONTRIBUTING.md) and the [changelog](CHANGELOG.md). Code, icon and both original Aurora videos are [MIT licensed](LICENSE). No third-party wallpaper assets are included.

@@ -9,7 +9,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var thumbnailRevision = 0
     @Published var importing = false
     @Published var errorMessage: String?
-    @Published var displayStatus: [String: String] = [:]
+    @Published var displayStatus: [String: DisplayPlaybackStatus] = [:]
     @Published var screens: [NSScreen] = NSScreen.screens
     @Published var loginEnabled = false
     private(set) var storageAvailable = false
@@ -19,6 +19,7 @@ final class AppModel: ObservableObject {
     let directory: URL
     let manifest: URL
     lazy var engine = WallpaperEngine(model: self)
+    var onLanguageChange: (() -> Void)?
 
     init(directory: URL? = nil) {
         self.directory = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -34,21 +35,35 @@ final class AppModel: ObservableObject {
                     // Preserve a damaged manifest instead of silently overwriting it.
                     let backup = manifest.deletingLastPathComponent().appendingPathComponent("library-backup-\(UUID().uuidString).json")
                     try FileManager.default.copyItem(at: manifest, to: backup)
-                    errorMessage = "Библиотека не открылась. Её резервная копия сохранена рядом с library.json."
+                    errorMessage = text("error.recovery")
                 }
             }
             storageAvailable = true
-        } catch { errorMessage = "Не удалось открыть папку библиотеки: \(error.localizedDescription)" }
+        } catch { errorMessage = localizer.format("error.openLibrary", error.localizedDescription) }
     }
 
     var selected: Wallpaper? { state.wallpapers.first { $0.id == state.settings.selectedID } }
     var settings: AppSettings { state.settings }
+    var localizer: Localizer { Localizer(language: settings.language) }
+    func text(_ key: String) -> String { localizer.text(key) }
+    var isPlaying: Bool { displayStatus.values.contains(.playing) }
     var statusSummary: String {
-        if state.wallpapers.isEmpty { return "Добавь своё первое видео" }
-        if selected == nil { return "Обои выключены" }
-        if screens.allSatisfy({ settings.disabledDisplays.contains($0.driftID) }) { return "Все экраны выключены" }
-        if displayStatus.values.contains("Воспроизводится") { return "Воспроизводится" }
-        return displayStatus.sorted(by: { $0.key < $1.key }).first?.value ?? "Подготовка…"
+        if state.wallpapers.isEmpty { return text("status.empty") }
+        if selected == nil { return text("status.off") }
+        if screens.allSatisfy({ settings.disabledDisplays.contains($0.driftID) }) { return text("status.displaysOff") }
+        if isPlaying { return text("status.playing") }
+        return (displayStatus.sorted(by: { $0.key < $1.key }).first?.value ?? .preparing).label(using: localizer)
+    }
+
+    var outputDescription: String? {
+        guard let selected else { return nil }
+        let plan = settings.quality.plan(width: selected.width, height: selected.height, framesPerSecond: selected.framesPerSecond)
+        return localizer.format("quality.output", plan.width, plan.height, fpsLabel(plan.framesPerSecond))
+    }
+
+    func fpsLabel(_ value: Double) -> String {
+        abs(value - value.rounded()) < 0.01 ? String(Int(value.rounded()))
+            : String(format: "%.2f", locale: Locale(identifier: settings.language.rawValue), value)
     }
 
     func start() {
@@ -56,14 +71,16 @@ final class AppModel: ObservableObject {
         if let selected { loadThumbnail(selected) }
         if state.wallpapers.isEmpty, storageAvailable,
            let demo = DriftResources.bundle.url(forResource: "Aurora", withExtension: "mp4") {
-            importVideos([demo], demo: true)
+            importVideos([demo], demoName: "Aurora", bundledID: "aurora")
         }
     }
 
     func update(_ change: (inout AppSettings) -> Void) {
+        let previousLanguage = settings.language
         change(&state.settings)
         save()
         engine.refresh()
+        if settings.language != previousLanguage { onLanguageChange?() }
     }
 
     func select(_ wallpaper: Wallpaper) {
@@ -76,14 +93,28 @@ final class AppModel: ObservableObject {
         panel.allowedContentTypes = [.mpeg4Movie, .quickTimeMovie, UTType(filenameExtension: "m4v") ?? .movie]
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
-        panel.prompt = "Добавить"
-        panel.begin { [weak self] response in
+        panel.prompt = text("action.add")
+        panel.title = text("action.chooseVideo")
+        let completion: (NSApplication.ModalResponse) -> Void = { [weak self] response in
             guard response == .OK else { return }
             Task { @MainActor in self?.importVideos(panel.urls) }
         }
+        if let window = NSApp.keyWindow {
+            panel.beginSheetModal(for: window, completionHandler: completion)
+        } else {
+            panel.begin(completionHandler: completion)
+        }
     }
 
-    func importVideos(_ urls: [URL], demo: Bool = false) {
+    func addHighQualityDemo() {
+        if let existing = state.wallpapers.first(where: { $0.bundledID == "aurora4k" }) {
+            select(existing)
+        } else if let url = DriftResources.bundle.url(forResource: "Aurora4K", withExtension: "mp4") {
+            importVideos([url], demoName: "Aurora 4K", bundledID: "aurora4k")
+        }
+    }
+
+    func importVideos(_ urls: [URL], demoName: String? = nil, bundledID: String? = nil) {
         guard !importing, storageAvailable else { return }
         importing = true
         importTask = Task { [weak self] in
@@ -96,12 +127,12 @@ final class AppModel: ObservableObject {
                     var wallpaper = try await Task.detached(priority: .utility) {
                         try await MediaImporter.inspectAndCopy(url, into: target)
                     }.value
-                    if demo { wallpaper.name = "Aurora" }
+                    if let demoName { wallpaper.name = demoName; wallpaper.bundledID = bundledID }
                     state.wallpapers.append(wallpaper)
-                    if state.settings.selectedID == nil { state.settings.selectedID = wallpaper.id }
+                    if state.settings.selectedID == nil || bundledID == "aurora4k" { state.settings.selectedID = wallpaper.id }
                     save()
                     if state.settings.selectedID == wallpaper.id { loadThumbnail(wallpaper) }
-                } catch { failures.append("\(url.lastPathComponent): \(error.localizedDescription)") }
+                } catch { failures.append("\(url.lastPathComponent): \(description(for: error))") }
             }
             if !failures.isEmpty { errorMessage = failures.joined(separator: "\n\n") }
             engine.refresh()
@@ -116,7 +147,7 @@ final class AppModel: ObservableObject {
         engine.refresh()
         if let url {
             do { try FileManager.default.removeItem(at: url) }
-            catch { errorMessage = "Запись удалена, но файл остался в библиотеке: \(error.localizedDescription)" }
+            catch { errorMessage = localizer.format("error.removeFile", error.localizedDescription) }
         }
     }
 
@@ -142,7 +173,12 @@ final class AppModel: ObservableObject {
     private func save() {
         guard storageAvailable else { return }
         do { try LibraryStorage.save(state, to: manifest) }
-        catch { errorMessage = "Не удалось сохранить настройки: \(error.localizedDescription)" }
+        catch { errorMessage = localizer.format("error.save", error.localizedDescription) }
+    }
+
+    private func description(for error: Error) -> String {
+        guard let media = error as? MediaError else { return error.localizedDescription }
+        return text(media.localizationKey)
     }
 }
 
@@ -160,18 +196,4 @@ enum DriftResources {
 
 extension NSScreen {
     var driftID: String { String((deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value ?? 0) }
-}
-
-extension PauseReason {
-    var title: String {
-        switch self {
-        case .manual: return "Пауза вручную"
-        case .sleeping: return "Экран спит"
-        case .inactiveSession: return "Сеанс неактивен"
-        case .thermal: return "Пауза: высокая температура"
-        case .lowPower: return "Режим энергосбережения"
-        case .battery: return "Работа от аккумулятора"
-        case .covered: return "Рабочий стол скрыт"
-        }
-    }
 }

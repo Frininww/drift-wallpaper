@@ -5,11 +5,14 @@ import AVFoundation
 
 let destination = URL(fileURLWithPath: CommandLine.arguments[1])
 try? FileManager.default.removeItem(at: destination)
-let width = 1280, height = 720, fps = 24, frames = 192
+let width = CommandLine.arguments.count > 2 ? Int(CommandLine.arguments[2])! : 1280
+let height = CommandLine.arguments.count > 3 ? Int(CommandLine.arguments[3])! : 720
+let fps = CommandLine.arguments.count > 4 ? Int(CommandLine.arguments[4])! : 24
+let frames = fps * 8
 let writer = try AVAssetWriter(outputURL: destination, fileType: .mp4)
 let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
     AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: width, AVVideoHeightKey: height,
-    AVVideoCompressionPropertiesKey: [AVVideoAverageBitRateKey: 1_800_000, AVVideoExpectedSourceFrameRateKey: fps,
+    AVVideoCompressionPropertiesKey: [AVVideoAverageBitRateKey: max(1_800_000, min(18_000_000, width * height * fps / 25)), AVVideoExpectedSourceFrameRateKey: fps,
                                      AVVideoMaxKeyFrameIntervalKey: fps * 2]
 ])
 input.expectsMediaDataInRealTime = false
@@ -35,6 +38,7 @@ for frame in 0..<frames {
         let context = CGContext(data: CVPixelBufferGetBaseAddress(buffer), width: width, height: height, bitsPerComponent: 8,
                                 bytesPerRow: CVPixelBufferGetBytesPerRow(buffer), space: space,
                                 bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue)!
+        context.scaleBy(x: Double(width) / 1280, y: Double(height) / 720)
         let t = Double(frame) / Double(frames) * .pi * 2
         let background = CGGradient(colorsSpace: space, colors: [color(0.025, 0.055, 0.13), color(0.12, 0.19, 0.30), color(0.24, 0.34, 0.37)] as CFArray, locations: [0, 0.65, 1])!
         context.drawLinearGradient(background, start: CGPoint(x: 0, y: 720), end: .zero, options: [])
@@ -88,4 +92,4 @@ let done = DispatchSemaphore(value: 0)
 writer.finishWriting { done.signal() }
 done.wait()
 guard writer.status == .completed else { fatalError(writer.error!.localizedDescription) }
-print("Created \(destination.lastPathComponent): 1280×720, 24 fps, 8 seconds")
+print("Created \(destination.lastPathComponent): \(width)×\(height), \(fps) fps, 8 seconds")

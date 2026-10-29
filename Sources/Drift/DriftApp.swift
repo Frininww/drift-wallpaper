@@ -19,12 +19,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        model = AppModel()
+        // Development/GUI tests can use an isolated library without touching
+        // the user's videos or preferences. Normal launches leave this unset.
+        let isolatedDirectory = ProcessInfo.processInfo.environment["DRIFT_LIBRARY_DIRECTORY"]
+            .map { URL(fileURLWithPath: $0, isDirectory: true) }
+        model = AppModel(directory: isolatedDirectory)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem.button?.image = NSImage(systemSymbolName: "wind", accessibilityDescription: "Drift — живые обои")
+        statusItem.button?.image = NSImage(systemSymbolName: "wind", accessibilityDescription: model.text("app.accessibility"))
         let menu = NSMenu()
         menu.delegate = self
         statusItem.menu = menu
+        model.onLanguageChange = { [weak self] in self?.configureMainMenu() }
+        configureMainMenu()
         model.start()
         // Login-item launches restore wallpaper without opening a library window.
         let isLogin = NSAppleEventManager.shared().currentAppleEvent?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
@@ -38,6 +44,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     func applicationWillTerminate(_ notification: Notification) { model?.engine.stop() }
+
+    private func configureMainMenu() {
+        let main = NSMenu()
+        let appItem = NSMenuItem(title: "Drift", action: nil, keyEquivalent: "")
+        let appMenu = NSMenu(title: "Drift")
+        add(model.text("menu.open"), action: #selector(showLibrary), key: "1", to: appMenu)
+        appMenu.addItem(.separator())
+        add(model.text("menu.quit"), action: #selector(quit), key: "q", to: appMenu)
+        appItem.submenu = appMenu
+        main.addItem(appItem)
+        let fileItem = NSMenuItem(title: model.text("menu.file"), action: nil, keyEquivalent: "")
+        let file = NSMenu(title: model.text("menu.file"))
+        add(model.text("menu.add"), action: #selector(importVideo), key: "o", to: file)
+        file.addItem(NSMenuItem(title: model.text("menu.close"), action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w"))
+        fileItem.submenu = file
+        main.addItem(fileItem)
+        NSApp.mainMenu = main
+        statusItem.button?.setAccessibilityLabel(model.text("app.accessibility"))
+    }
 
     @objc private func showLibrary() {
         if libraryWindow == nil {
@@ -59,16 +84,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
+        statusItem.button?.setAccessibilityLabel(model.text("app.accessibility"))
         let title = NSMenuItem(title: "Drift · \(model.statusSummary)", action: nil, keyEquivalent: "")
         title.isEnabled = false
         menu.addItem(title)
         menu.addItem(.separator())
-        add("Открыть Drift…", action: #selector(showLibrary), key: "o", to: menu)
-        add("Добавить видео…", action: #selector(importVideo), to: menu)
-        add(model.settings.manuallyPaused ? "Продолжить" : "Пауза", action: #selector(togglePause), key: "p", to: menu)
-        add("Выключить обои", action: #selector(turnOff), to: menu)
+        add(model.text("menu.open"), action: #selector(showLibrary), key: "o", to: menu)
+        add(model.text("menu.add"), action: #selector(importVideo), to: menu)
+        add(model.text(model.settings.manuallyPaused ? "action.resume" : "action.pause"), action: #selector(togglePause), key: "p", to: menu)
+        add(model.text("action.turnOff"), action: #selector(turnOff), to: menu)
         menu.addItem(.separator())
-        add("Завершить Drift", action: #selector(quit), key: "q", to: menu)
+        add(model.text("menu.quit"), action: #selector(quit), key: "q", to: menu)
     }
 
     private func add(_ title: String, action: Selector, key: String = "", to menu: NSMenu) {

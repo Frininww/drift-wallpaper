@@ -89,9 +89,9 @@ final class WallpaperEngine: NSObject {
         }
         for screen in enabled {
             let id = screen.driftID
-            if renderers[id]?.wallpaperID != selected.id {
+            if renderers[id]?.wallpaperID != selected.id || renderers[id]?.quality != model.settings.quality {
                 renderers.removeValue(forKey: id)?.stop()
-                let renderer = DesktopRenderer(screen: screen, wallpaperID: selected.id, url: url)
+                let renderer = DesktopRenderer(screen: screen, wallpaperID: selected.id, url: url, quality: model.settings.quality)
                 renderer.onChange = { [weak self] in self?.reconcile() }
                 renderers[id] = renderer
                 renderer.prepare()
@@ -104,13 +104,16 @@ final class WallpaperEngine: NSObject {
     private func reconcile() {
         guard let model else { return }
         environment.manuallyPaused = model.settings.manuallyPaused
-        var statuses: [String: String] = [:]
+        var statuses: [String: DisplayPlaybackStatus] = [:]
         for (id, renderer) in renderers {
             var local = environment
             local.desktopVisible = renderer.window.occlusionState.contains(.visible)
             let reason = PlaybackPolicy.pauseReason(environment: local, settings: model.settings.energy)
             renderer.setPlaying(reason == nil)
-            statuses[id] = renderer.failure ?? (renderer.ready ? (reason?.title ?? "Воспроизводится") : "Подготовка…")
+            if renderer.failure != nil { statuses[id] = .failed }
+            else if !renderer.ready { statuses[id] = .preparing }
+            else if let reason { statuses[id] = .paused(reason) }
+            else { statuses[id] = .playing }
         }
         if model.displayStatus != statuses { model.displayStatus = statuses }
     }
@@ -137,6 +140,7 @@ private final class PlayerSurface: NSView {
 @MainActor
 private final class DesktopRenderer: NSObject, NSWindowDelegate {
     let wallpaperID: UUID
+    let quality: PlaybackQuality
     let window: NSWindow
     private let surface: PlayerSurface
     private let url: URL
@@ -149,8 +153,9 @@ private final class DesktopRenderer: NSObject, NSWindowDelegate {
     private(set) var failure: String?
     var onChange: (() -> Void)?
 
-    init(screen: NSScreen, wallpaperID: UUID, url: URL) {
+    init(screen: NSScreen, wallpaperID: UUID, url: URL, quality: PlaybackQuality) {
         self.wallpaperID = wallpaperID
+        self.quality = quality
         self.url = url
         surface = PlayerSurface(frame: NSRect(origin: .zero, size: screen.frame.size))
         window = DesktopWindow(contentRect: screen.frame, styleMask: .borderless, backing: .buffered, defer: false)
@@ -160,6 +165,8 @@ private final class DesktopRenderer: NSObject, NSWindowDelegate {
         window.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopWindow)) + 1)
         window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
         window.ignoresMouseEvents = true
+        window.setAccessibilityElement(false)
+        surface.setAccessibilityElement(false)
         window.hasShadow = false
         window.isOpaque = true
         window.backgroundColor = .black
@@ -171,18 +178,8 @@ private final class DesktopRenderer: NSObject, NSWindowDelegate {
         preparation = Task { [weak self] in
             guard let self else { return }
             do {
-                let asset = AVURLAsset(url: url)
-                guard let source = try await asset.loadTracks(withMediaType: .video).first else { throw MediaError.noVideo }
-                let duration = try await asset.load(.duration)
-                let transform = try await source.load(.preferredTransform)
-                // Build a video-only composition: audio never enters the queue.
-                let composition = AVMutableComposition()
-                guard let track = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else { throw MediaError.invalid }
-                try track.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: source, at: .zero)
-                track.preferredTransform = transform
+                let item = try await VideoPipeline.makeItem(url: url, quality: quality)
                 try Task.checkCancellation()
-                let item = AVPlayerItem(asset: composition)
-                item.preferredForwardBufferDuration = 1
                 let queue = AVQueuePlayer()
                 queue.isMuted = true
                 queue.volume = 0
@@ -202,7 +199,7 @@ private final class DesktopRenderer: NSObject, NSWindowDelegate {
                 window.orderFrontRegardless()
                 onChange?()
             } catch is CancellationError { return }
-            catch { failure = "Не удалось открыть видео: \(error.localizedDescription)"; onChange?() }
+            catch { failure = error.localizedDescription; onChange?() }
         }
     }
 
@@ -220,7 +217,7 @@ private final class DesktopRenderer: NSObject, NSWindowDelegate {
 
     private func readStatus() {
         if player?.currentItem?.status == .failed || looper?.status == .failed {
-            failure = "Ошибка воспроизведения. Выбери другое видео."
+            failure = "Playback failed"
             player?.pause()
         }
         ready = player?.currentItem?.status == .readyToPlay

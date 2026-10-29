@@ -19,6 +19,9 @@ final class LibraryTests: XCTestCase {
         state.settings.disabledDisplays = ["42"]
         state.settings.manuallyPaused = true
         state.settings.energy.pauseOnBattery = true
+        state.settings.language = .russian
+        state.settings.quality.resolution = .ultraHD
+        state.settings.quality.frameRate = .fps120
         try LibraryStorage.save(state, to: file)
         XCTAssertEqual(try LibraryStorage.load(from: file), state)
         state.settings.fit = .fit
@@ -79,5 +82,29 @@ final class LibraryTests: XCTestCase {
         video.width = 1920
         video.framesPerSecond = 60
         XCTAssertTrue(video.needsOptimization)
+    }
+
+    func testVersionOneLibraryMigratesWithoutLosingSelection() throws {
+        let id = UUID()
+        let json = """
+        {"version":1,"wallpapers":[{"id":"\(id.uuidString)","name":"Coast","filename":"clip.mp4","width":1920,"height":1080,"duration":12,"framesPerSecond":24,"byteCount":5000000}],"settings":{"energy":{"pauseWhenCovered":false,"pauseInLowPowerMode":true,"pauseOnBattery":true},"fit":"fit","selectedID":"\(id.uuidString)","disabledDisplays":["42"],"manuallyPaused":true}}
+        """
+        let state = try JSONDecoder().decode(LibraryState.self, from: Data(json.utf8))
+        XCTAssertEqual(state.wallpapers.first?.id, id)
+        XCTAssertNil(state.wallpapers.first?.bundledID)
+        XCTAssertEqual(state.settings.selectedID, id)
+        XCTAssertEqual(state.settings.disabledDisplays, ["42"])
+        XCTAssertTrue(state.settings.manuallyPaused)
+        XCTAssertTrue(state.settings.energy.pauseOnBattery)
+        XCTAssertFalse(state.settings.energy.pauseWhenCovered)
+        XCTAssertEqual(state.settings.fit, .fit)
+        XCTAssertEqual(state.settings.language, .english)
+        XCTAssertEqual(state.settings.quality, .init())
+    }
+
+    func testUnknownLanguageFallsBackWithoutDiscardingSettings() throws {
+        let state = try JSONDecoder().decode(AppSettings.self, from: Data("{\"language\":\"unknown\",\"manuallyPaused\":true}".utf8))
+        XCTAssertEqual(state.language, .english)
+        XCTAssertTrue(state.manuallyPaused)
     }
 }

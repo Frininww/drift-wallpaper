@@ -9,6 +9,7 @@ public struct Wallpaper: Codable, Identifiable, Equatable, Sendable {
     public var duration: Double
     public var framesPerSecond: Double
     public var byteCount: Int64
+    public var bundledID: String?
 
     public init(id: UUID = UUID(), name: String, filename: String, width: Int, height: Int,
                 duration: Double, framesPerSecond: Double, byteCount: Int64) {
@@ -30,7 +31,24 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var selectedID: UUID?
     public var disabledDisplays: Set<String> = []
     public var manuallyPaused = false
+    public var language = AppLanguage.english
+    public var quality = PlaybackQuality()
     public init() {}
+
+    private enum CodingKeys: String, CodingKey {
+        case energy, fit, selectedID, disabledDisplays, manuallyPaused, language, quality
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        energy = try values.decodeIfPresent(EnergySettings.self, forKey: .energy) ?? .init()
+        fit = try values.decodeIfPresent(VideoFit.self, forKey: .fit) ?? .fill
+        selectedID = try values.decodeIfPresent(UUID.self, forKey: .selectedID)
+        disabledDisplays = try values.decodeIfPresent(Set<String>.self, forKey: .disabledDisplays) ?? []
+        manuallyPaused = try values.decodeIfPresent(Bool.self, forKey: .manuallyPaused) ?? false
+        language = (try? values.decode(AppLanguage.self, forKey: .language)) ?? .english
+        quality = (try? values.decode(PlaybackQuality.self, forKey: .quality)) ?? .init()
+    }
 }
 
 public struct LibraryState: Codable, Equatable, Sendable {

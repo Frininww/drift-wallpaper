@@ -4,13 +4,14 @@ import DriftCore
 
 enum MediaError: LocalizedError {
     case invalid, noVideo, tooShort
-    var errorDescription: String? {
+    var localizationKey: String {
         switch self {
-        case .invalid: return "Не удалось прочитать видео. Выбери локальный MP4, MOV или M4V с кодеком H.264 или HEVC."
-        case .noVideo: return "В этом файле нет видеодорожки."
-        case .tooShort: return "Видео должно иметь конечную длительность не меньше одной секунды."
+        case .invalid: return "error.invalidMedia"
+        case .noVideo: return "error.noVideo"
+        case .tooShort: return "error.shortVideo"
         }
     }
+    var errorDescription: String? { Localizer(language: .english).text(localizationKey) }
 }
 
 enum MediaImporter {
