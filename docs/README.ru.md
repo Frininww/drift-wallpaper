@@ -4,7 +4,7 @@
 
 [Скачать](https://github.com/Frininww/drift-wallpaper/releases/latest) · [Производительность](PERFORMANCE.md) · [Изменения](../CHANGELOG.md)
 
-![Библиотека Drift](preview.png)
+![Вкладка Wallpapers в Drift со встроенными обоями Aurora](wallpapers.png)
 
 ## Возможности
 

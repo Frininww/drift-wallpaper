@@ -12,7 +12,7 @@ Native video wallpapers for macOS, with a local library, independent display con
 
 [Download](https://github.com/Frininww/drift-wallpaper/releases/latest) · [Русский](docs/README.ru.md) · [Performance](docs/PERFORMANCE.md) · [Report an issue](https://github.com/Frininww/drift-wallpaper/issues)
 
-![Drift’s English settings with language and Lock Screen/system-background controls](docs/preview.png)
+![Drift Wallpapers view with the included Aurora wallpapers](docs/wallpapers.png)
 
 </div>
 
