@@ -17,8 +17,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var model: AppModel!
     private var libraryWindow: NSWindow?
     private var statusItem: NSStatusItem!
+    private let instance = InstanceCoordinator()
+    private var startup: Task<Void, Never>?
+    private var launchedAtLogin = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        launchedAtLogin = NSAppleEventManager.shared().currentAppleEvent?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
+        startup = Task { @MainActor in
+            do {
+                guard try instance.acquire() else {
+                    instance.activateOwner()
+                    NSApp.terminate(nil)
+                    return
+                }
+                try await instance.retireLegacyCopies()
+                try Task.checkCancellation()
+                finishLaunching()
+            } catch is CancellationError { return }
+            catch {
+                let alert = NSAlert()
+                alert.messageText = "Drift couldn’t start"
+                alert.informativeText = error.localizedDescription
+                alert.runModal()
+                NSApp.terminate(nil)
+            }
+        }
+    }
+
+    private func finishLaunching() {
         // Development/GUI tests can use an isolated library without touching
         // the user's videos or preferences. Normal launches leave this unset.
         let isolatedDirectory = ProcessInfo.processInfo.environment["DRIFT_LIBRARY_DIRECTORY"]
@@ -31,10 +57,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.menu = menu
         model.onLanguageChange = { [weak self] in self?.configureMainMenu() }
         configureMainMenu()
+        DistributedNotificationCenter.default().addObserver(self, selector: #selector(showLibrary), name: InstanceCoordinator.showLibraryNotification, object: nil)
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(otherCopyLaunched(_:)), name: NSWorkspace.didLaunchApplicationNotification, object: nil)
         model.start()
         // Login-item launches restore wallpaper without opening a library window.
-        let isLogin = NSAppleEventManager.shared().currentAppleEvent?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
-        if !isLogin { showLibrary() }
+        if !launchedAtLogin { showLibrary() }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -43,7 +70,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
-    func applicationWillTerminate(_ notification: Notification) { model?.engine.stop() }
+    func applicationWillTerminate(_ notification: Notification) {
+        startup?.cancel()
+        DistributedNotificationCenter.default().removeObserver(self)
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
+        model?.stop()
+    }
+
+    @objc private func otherCopyLaunched(_ notification: Notification) {
+        guard let other = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+              other.bundleIdentifier == InstanceCoordinator.bundleID,
+              other.processIdentifier != ProcessInfo.processInfo.processIdentifier else { return }
+        Task { @MainActor [weak self] in
+            // New versions hand off using the lease themselves. Older versions
+            // must also be retired if launched after the current owner.
+            try? await Task.sleep(for: .milliseconds(300))
+            guard let self, !other.isTerminated else { return }
+            other.terminate()
+            try? await Task.sleep(for: .seconds(1))
+            if !other.isTerminated { other.forceTerminate() }
+            showLibrary()
+        }
+    }
 
     private func configureMainMenu() {
         let main = NSMenu()
@@ -65,6 +113,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func showLibrary() {
+        guard model != nil else { return }
         if libraryWindow == nil {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1060, height: 780),
                                   styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.0
+
+- Added a Lock Screen / system-background section for applying a video still or photo through macOS's desktop-image API. This is a shared static system image; independent animated Lock Screen, FileVault and login-screen customization remain unsupported.
+- Added frame selection, opt-in first-frame sync, and restoration of prior system image URLs/options. Restoration preserves newer manual choices and disconnected-display records; an atomic intent journal supports interrupted applies.
+- Added a per-user kernel lease so only one Drift copy owns wallpaper playback. Repeated launches activate the running library; legacy copies are retired before new players start.
+- Made engine startup idempotent and renderer teardown terminal. Stopped or canceled renderers cannot reattach old players or reopen old windows.
+- Stills are generated off the UI thread, sized for each display and cached; stale background requests are canceled before applying.
+- Added tests for ownership, interrupted restoration, failed system writes, image fitting and renderer cancellation.
+- Verification: all 40 automated tests pass. A second app copy exited while preserving the original owner PID; native video-still/photo apply and system-image restoration were also checked. Secure Lock Screen visuals remain dependent on macOS.
+
 ## 1.1.0
 
 - English by default, with an immediate, persistent Russian switch in Settings. Menus, statuses, alerts and accessibility labels follow the selected language.

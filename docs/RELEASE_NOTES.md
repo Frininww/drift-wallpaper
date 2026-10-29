@@ -1,13 +1,12 @@
-Drift 1.1.0 — English by default, Russian on demand, and more control over playback quality.
+Drift 1.2.0 — one wallpaper owner, plus system-background stills for macOS.
 
-- Switch languages immediately in Settings → Appearance → Language.
-- Full visible hit regions for navigation, Add video and wallpaper cards; removed the lower-left slogan.
-- Choose Original / 1080p / 1440p / 4K and Original / 24 / 30 / 60 / 120 FPS limits.
-- Add the included 4K / 60 FPS Aurora demo from Playback quality settings.
-- Original keeps source quality; limits do not upscale, interpolate frames or change playback speed.
-- Existing libraries and selections migrate automatically.
-- English-first documentation with a Russian README.
+- Only one Drift copy owns desktop playback. Repeated launches show the existing library and exit; old legacy copies are retired before replacement players start.
+- Stopped renderers detach their layers/queues and cannot reopen after canceled loading.
+- New Settings → Lock Screen & system background section: apply a selected video frame or photo, optionally follow video selection, and restore prior system image URLs/options.
+- System-image restoration is journaled atomically, preserves newer manual pictures, and retains records for disconnected displays.
+- Stills are generated on a utility task, fitted to each display and cached. Superseded requests cannot change the system image.
+- English and Russian interfaces; existing libraries and preferences migrate automatically.
 
-Download `Drift-universal.zip`, unzip it and move Drift to Applications. Quit an older running version before replacing it.
+**Lock Screen scope:** this sets a static macOS desktop picture that macOS may also use on the secure Lock Screen. It also changes the system desktop picture underneath Drift. It is not an independent animated Lock Screen and does not customize FileVault/login screens, replace aerial assets or modify loginwindow. Use macOS Wallpaper settings for dynamic/aerial modes and other spaces. Restoring an image cannot restore a complete dynamic/shuffle configuration.
 
-Requires macOS 13 or later, Apple Silicon or Intel. This build is ad-hoc signed and **not notarized by Apple**. macOS may require an explicit exception in System Settings → Privacy & Security → Open Anyway. Verify the source and checksum first. Screen Recording and Accessibility permissions are not required.
+Download `Drift-universal.zip`, unzip and move Drift to Applications. Requires macOS 13+, Apple Silicon or Intel. The build is ad-hoc signed and not Apple-notarized; standard macOS first-launch trust checks may apply. Verify the included SHA256SUMS.txt. Drift does not add confirmation dialogs for its own background changes or instance handoff.

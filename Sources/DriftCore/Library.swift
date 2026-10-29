@@ -33,10 +33,11 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var manuallyPaused = false
     public var language = AppLanguage.english
     public var quality = PlaybackQuality()
+    public var syncSystemBackground = false
     public init() {}
 
     private enum CodingKeys: String, CodingKey {
-        case energy, fit, selectedID, disabledDisplays, manuallyPaused, language, quality
+        case energy, fit, selectedID, disabledDisplays, manuallyPaused, language, quality, syncSystemBackground
     }
 
     public init(from decoder: Decoder) throws {
@@ -48,6 +49,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         manuallyPaused = try values.decodeIfPresent(Bool.self, forKey: .manuallyPaused) ?? false
         language = (try? values.decode(AppLanguage.self, forKey: .language)) ?? .english
         quality = (try? values.decode(PlaybackQuality.self, forKey: .quality)) ?? .init()
+        syncSystemBackground = try values.decodeIfPresent(Bool.self, forKey: .syncSystemBackground) ?? false
     }
 }
 

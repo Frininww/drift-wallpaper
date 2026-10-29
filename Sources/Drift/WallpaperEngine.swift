@@ -11,10 +11,13 @@ final class WallpaperEngine: NSObject {
     private var systemSleeping = false
     private var screensSleeping = false
     private var powerSource: CFRunLoopSource?
+    private var started = false
 
     init(model: AppModel) { self.model = model }
 
     func start() {
+        guard !started else { return }
+        started = true
         let workspace = NSWorkspace.shared.notificationCenter
         for name in [NSWorkspace.willSleepNotification, NSWorkspace.didWakeNotification,
                      NSWorkspace.screensDidSleepNotification, NSWorkspace.screensDidWakeNotification,
@@ -37,12 +40,14 @@ final class WallpaperEngine: NSObject {
     }
 
     func stop() {
+        started = false
         NSWorkspace.shared.notificationCenter.removeObserver(self)
         NotificationCenter.default.removeObserver(self)
         if let powerSource { CFRunLoopRemoveSource(CFRunLoopGetMain(), powerSource, .commonModes) }
         powerSource = nil
         for renderer in renderers.values { renderer.stop() }
         renderers.removeAll()
+        model?.displayStatus = [:]
     }
 
     @objc private func workspaceChanged(_ notification: Notification) {
@@ -138,7 +143,7 @@ private final class PlayerSurface: NSView {
 }
 
 @MainActor
-private final class DesktopRenderer: NSObject, NSWindowDelegate {
+final class DesktopRenderer: NSObject, NSWindowDelegate {
     let wallpaperID: UUID
     let quality: PlaybackQuality
     let window: NSWindow
@@ -149,6 +154,8 @@ private final class DesktopRenderer: NSObject, NSWindowDelegate {
     private var preparation: Task<Void, Never>?
     private var statusObservation: NSKeyValueObservation?
     private var loopObservation: NSKeyValueObservation?
+    private(set) var stopped = false
+    var hasPlayer: Bool { player != nil }
     private(set) var ready = false
     private(set) var failure: String?
     var onChange: (() -> Void)?
@@ -175,11 +182,13 @@ private final class DesktopRenderer: NSObject, NSWindowDelegate {
     }
 
     func prepare() {
+        guard !stopped, preparation == nil else { return }
         preparation = Task { [weak self] in
             guard let self else { return }
             do {
                 let item = try await VideoPipeline.makeItem(url: url, quality: quality)
                 try Task.checkCancellation()
+                guard !stopped else { return }
                 let queue = AVQueuePlayer()
                 queue.isMuted = true
                 queue.volume = 0
@@ -209,13 +218,14 @@ private final class DesktopRenderer: NSObject, NSWindowDelegate {
     }
 
     func setPlaying(_ value: Bool) {
-        guard failure == nil, let player else { return }
+        guard !stopped, failure == nil, let player else { return }
         if value {
             if player.rate == 0 { player.play() }
         } else if player.rate != 0 { player.pause() }
     }
 
     private func readStatus() {
+        guard !stopped else { return }
         if player?.currentItem?.status == .failed || looper?.status == .failed {
             failure = "Playback failed"
             player?.pause()
@@ -227,6 +237,8 @@ private final class DesktopRenderer: NSObject, NSWindowDelegate {
     func windowDidChangeOcclusionState(_ notification: Notification) { onChange?() }
 
     func stop() {
+        guard !stopped else { return }
+        stopped = true
         onChange = nil
         preparation?.cancel()
         preparation = nil
@@ -237,9 +249,12 @@ private final class DesktopRenderer: NSObject, NSWindowDelegate {
         looper = nil
         player?.removeAllItems()
         surface.playerLayer.player = nil
+        surface.playerLayer.isHidden = true
         player = nil
+        ready = false
         window.delegate = nil
         window.orderOut(nil)
+        window.contentView = nil
         window.close()
     }
 }

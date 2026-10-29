@@ -9,6 +9,8 @@ Drift uses Swift 6, Swift Package Manager and system frameworks. Xcode 16 or lat
 
 Keep rendering event-driven. Avoid polling the window list, software frame loops and per-frame SwiftUI state updates. Do not claim a fixed CPU, memory or battery budget without measurements and hardware/media details.
 
+All copies must acquire the shared per-user lease before creating an engine. Never unlink the live lease file or allow canceled renderers to show a window. System-image tests should use a fake workspace; only deliberate GUI smoke checks should change real wallpaper, and they must restore it afterward. Document the distinction between a shared static system image and independent animated Lock Screen support.
+
 The interface defaults to English and supports Russian. Keep both Localizable.strings files in sync and use Localizer for user-facing text. Language changes should apply without relaunching. Preserve keyboard access, VoiceOver descriptions, visible button hit regions and sufficient contrast.
 
 For isolated GUI checks, launch the built executable with `DRIFT_LIBRARY_DIRECTORY` set to a disposable `Wallpapers/` directory. Its parent holds that test library's manifest. Leave the variable unset for normal use; do not publish screenshots containing users' imported media.

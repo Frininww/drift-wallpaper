@@ -12,10 +12,17 @@ final class AppModel: ObservableObject {
     @Published var displayStatus: [String: DisplayPlaybackStatus] = [:]
     @Published var screens: [NSScreen] = NSScreen.screens
     @Published var loginEnabled = false
+    @Published var backgroundBusy = false
+    @Published var backgroundCanRestore = false
+    @Published var backgroundStatus: BackgroundActionStatus?
+    @Published var posterFrameSeconds = 0.0
     private(set) var storageAvailable = false
     private var importTask: Task<Void, Never>?
     private let thumbnailCache = NSCache<NSUUID, NSImage>()
     private var loadingThumbnails: Set<UUID> = []
+    private var systemBackground: SystemBackgroundController?
+    private var backgroundTask: Task<Void, Never>?
+    private var backgroundRequest = UUID()
     let directory: URL
     let manifest: URL
     lazy var engine = WallpaperEngine(model: self)
@@ -68,19 +75,34 @@ final class AppModel: ObservableObject {
 
     func start() {
         engine.start()
+        do { backgroundCanRestore = try backgroundController().canRestore }
+        catch { errorMessage = localizer.format("background.error", error.localizedDescription) }
         if let selected { loadThumbnail(selected) }
         if state.wallpapers.isEmpty, storageAvailable,
            let demo = DriftResources.bundle.url(forResource: "Aurora", withExtension: "mp4") {
             importVideos([demo], demoName: "Aurora", bundledID: "aurora")
         }
+        if settings.syncSystemBackground, selected != nil { applySelectedFrame(seconds: 0) }
+    }
+
+    func stop() {
+        cancelBackgroundRequest()
+        importTask?.cancel()
+        engine.stop()
     }
 
     func update(_ change: (inout AppSettings) -> Void) {
-        let previousLanguage = settings.language
+        let previous = settings
         change(&state.settings)
         save()
         engine.refresh()
-        if settings.language != previousLanguage { onLanguageChange?() }
+        if settings.language != previous.language { onLanguageChange?() }
+        if settings.selectedID != previous.selectedID { posterFrameSeconds = 0 }
+        if previous.syncSystemBackground, !settings.syncSystemBackground { cancelBackgroundRequest() }
+        if settings.syncSystemBackground, selected != nil,
+           settings.selectedID != previous.selectedID || settings.fit != previous.fit || !previous.syncSystemBackground {
+            applySelectedFrame(seconds: 0)
+        }
     }
 
     func select(_ wallpaper: Wallpaper) {
@@ -119,6 +141,7 @@ final class AppModel: ObservableObject {
         importing = true
         importTask = Task { [weak self] in
             guard let self else { return }
+            let previousSelection = settings.selectedID
             defer { importing = false }
             var failures: [String] = []
             for url in urls {
@@ -136,7 +159,114 @@ final class AppModel: ObservableObject {
             }
             if !failures.isEmpty { errorMessage = failures.joined(separator: "\n\n") }
             engine.refresh()
+            if settings.syncSystemBackground, settings.selectedID != previousSelection { applySelectedFrame(seconds: 0) }
         }
+    }
+
+    var maximumPosterTime: Double { max(0, (selected?.duration ?? 0) - 0.1) }
+
+    func applySelectedFrame(seconds: Double? = nil) {
+        guard let selected, let url = state.mediaURL(for: selected, in: directory) else { return }
+        let time = min(max(0, seconds ?? posterFrameSeconds), maximumPosterTime)
+        runBackgroundRequest { directory, displays, fit in
+            let image = try await BackgroundImageRenderer.videoFrame(url, seconds: time)
+            return try BackgroundImageRenderer.write(image, for: displays, fit: fit,
+                                                     key: "video|\(selected.id)|\(Int(time * 1000))", in: directory)
+        }
+    }
+
+    func chooseBackgroundPhoto() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.title = text("background.choosePhoto")
+        panel.prompt = text("background.applyPhoto")
+        let completion: (NSApplication.ModalResponse) -> Void = { [weak self] response in
+            guard response == .OK, let url = panel.url else { return }
+            Task { @MainActor in
+                guard let self else { return }
+                self.update { $0.syncSystemBackground = false }
+                self.runBackgroundRequest { directory, displays, fit in
+                    let access = url.startAccessingSecurityScopedResource()
+                    defer { if access { url.stopAccessingSecurityScopedResource() } }
+                    let values = try url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
+                    let key = "photo|\(url.path)|\(values.fileSize ?? 0)|\(values.contentModificationDate?.timeIntervalSince1970 ?? 0)"
+                    let image = try BackgroundImageRenderer.photo(url)
+                    return try BackgroundImageRenderer.write(image, for: displays, fit: fit, key: key, in: directory)
+                }
+            }
+        }
+        if let window = NSApp.keyWindow { panel.beginSheetModal(for: window, completionHandler: completion) }
+        else { panel.begin(completionHandler: completion) }
+    }
+
+    func restoreSystemBackground() {
+        update { $0.syncSystemBackground = false }
+        cancelBackgroundRequest()
+        do {
+            let controller = try backgroundController()
+            try controller.restore()
+            backgroundCanRestore = controller.canRestore
+            backgroundStatus = .restored
+        } catch {
+            backgroundCanRestore = systemBackground?.canRestore ?? false
+            errorMessage = localizer.format("background.error", error.localizedDescription)
+        }
+    }
+
+    func openWallpaperSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.Wallpaper-Settings.extension"), NSWorkspace.shared.open(url) { return }
+        NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/System Settings.app"))
+    }
+
+    private func backgroundController() throws -> SystemBackgroundController {
+        if let systemBackground { return systemBackground }
+        let controller = try SystemBackgroundController(directory: directory.deletingLastPathComponent().appendingPathComponent("SystemBackground", isDirectory: true))
+        systemBackground = controller
+        return controller
+    }
+
+    private func runBackgroundRequest(_ operation: @escaping @Sendable (URL, [BackgroundDisplay], VideoFit) async throws -> [String: URL]) {
+        cancelBackgroundRequest()
+        do {
+            let controller = try backgroundController()
+            let targets = controller.displays
+            let destination = controller.directory
+            let fit = settings.fit
+            let request = backgroundRequest
+            backgroundBusy = true
+            backgroundTask = Task { [weak self] in
+                guard let self else { return }
+                defer {
+                    if backgroundRequest == request {
+                        backgroundBusy = false
+                        backgroundCanRestore = controller.canRestore
+                    }
+                }
+                do {
+                    let worker = Task.detached(priority: .utility) { try await operation(destination, targets, fit) }
+                    let images = try await withTaskCancellationHandler {
+                        try await worker.value
+                    } onCancel: { worker.cancel() }
+                    try Task.checkCancellation()
+                    guard backgroundRequest == request else { return }
+                    let count = try controller.apply(images)
+                    backgroundStatus = .applied(count)
+                } catch is CancellationError { return }
+                catch {
+                    guard backgroundRequest == request else { return }
+                    errorMessage = localizer.format("background.error", error.localizedDescription)
+                }
+            }
+        } catch { errorMessage = localizer.format("background.error", error.localizedDescription) }
+    }
+
+    private func cancelBackgroundRequest() {
+        backgroundRequest = UUID()
+        backgroundTask?.cancel()
+        backgroundTask = nil
+        backgroundBusy = false
     }
 
     func remove(_ wallpaper: Wallpaper) {

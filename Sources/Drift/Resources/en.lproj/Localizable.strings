@@ -89,3 +89,16 @@
 "menu.quit" = "Quit Drift";
 "menu.file" = "File";
 "menu.close" = "Close Window";
+"background.title" = "Lock Screen & system background";
+"background.description" = "Set a still from your video or a photo as the system background. macOS may also use this image on the Lock Screen. This changes the desktop picture beneath Drift, too.";
+"background.sync" = "Follow the selected wallpaper with a still image";
+"background.frame" = "Frame from the selected video";
+"background.applyFrame" = "Apply video frame";
+"background.choosePhoto" = "Choose image…";
+"background.applyPhoto" = "Apply image";
+"background.restore" = "Restore previous system image";
+"background.settings" = "Wallpaper settings…";
+"background.limitations" = "Still images only; not an independent animated Lock Screen. macOS controls lock/login visuals, including FileVault. Applies to current desktop spaces; use Wallpaper settings for other spaces. Restoring an image does not restore a previous dynamic/aerial configuration.";
+"background.applied" = "System image applied to %d display(s). Lock Screen appearance is managed by macOS.";
+"background.restored" = "Previous system images restored where available. Background sync is off.";
+"background.error" = "Couldn’t update the system background: %@";

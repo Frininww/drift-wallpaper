@@ -28,3 +28,13 @@ enum DisplayPlaybackStatus: Equatable {
         }
     }
 }
+
+enum BackgroundActionStatus {
+    case applied(Int), restored
+    func label(using localizer: Localizer) -> String {
+        switch self {
+        case .applied(let count): return localizer.format("background.applied", count)
+        case .restored: return localizer.text("background.restored")
+        }
+    }
+}

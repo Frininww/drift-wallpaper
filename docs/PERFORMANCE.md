@@ -12,6 +12,10 @@ Thumbnails load on demand, rather than preloading the full library. Their NSCach
 
 Pausing retains the current frame and player resources for quick resumption. It does not promise to release all decoder memory. Quitting releases the players and desktop windows.
 
+All app copies share a kernel file lease held for the process lifetime. Only the owner creates a wallpaper engine; a duplicate launch activates the owner and exits. Legacy releases are terminated at startup before replacement windows are shown. Engine start is idempotent. Renderer stop cancels loading, detaches its layer and queue, removes the content view and closes the window; stopped renderers cannot restart.
+
+System-background stills are separate from video playback. A selected frame or photo is generated once on a utility task, fitted to each display and cached as a PNG. Requests use cancellation and a generation identifier, so a stale result cannot replace a newer choice. The system image is set through NSWorkspace on the main actor. No per-frame Lock Screen rendering or privileged/loginwindow integration is used.
+
 ## Quality controls
 
 - Original resolution and FPS are the defaults. They preserve source quality without a video compositor; high-resolution and high-FPS sources are not restricted to the lightweight demo's 720p / 24 FPS.
@@ -48,7 +52,12 @@ Use a release build, close the library window, and record Mac model, macOS versi
 | Aurora 4K, Original | 3840×2160 / 60 FPS, without an attached video composition |
 | Aurora 4K, 1080p / 30 FPS | 1920×1080 / 30 FPS, with unchanged playback speed |
 | 720p / 24 FPS with 4K / 120 limits | Stays 720p / 24 FPS, without extra composition |
+| Start a second installed/downloaded copy | Existing owner remains; second exits without creating desktop windows |
+| Switch videos rapidly while metadata is loading | Old queues/layers are detached and canceled windows stay closed |
+| Apply a video still or photo | Current-space system image changes; appearance on the secure Lock Screen is determined by macOS |
+| Restore the system image | Saved URLs/options restore where supported; a newer manual picture is preserved |
+| Enable first-frame sync and change video | Latest selection applies once; obsolete requests never change the system image |
 
 Occlusion is reported by macOS, which may count transparent or nonrectangular windows as visible. Stage Manager and Spaces behavior should be checked on each supported macOS release. The app intentionally avoids private APIs for desktop or lock-screen integration.
 
-Automated tests cover pause policy, independent displays, persistence, 1.0 migration, deletion, manifest versioning, path traversal, quality planning, real 4K60 metadata, a rendered 1080p/30 frame and localization keys. Media tests need access to macOS video services. GUI, energy and hardware/OS combinations still require the manual checks above.
+Automated tests cover pause policy, persistence/migration, path traversal, quality planning, 4K60 metadata, rendered output, localization, exclusive ownership, restoration journaling, manual-change preservation, disconnected displays, failed system writes and terminal renderer cancellation. Tests use a fake workspace for system-image mutations. Media tests need macOS video services. GUI, Lock Screen visuals, energy and hardware/OS combinations still require manual verification. The static-image API cannot restore complete aerial/dynamic/shuffle configurations.

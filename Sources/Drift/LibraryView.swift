@@ -61,7 +61,7 @@ struct LibraryView: View {
                 }
             }
             Spacer()
-            Text("DRIFT  /  \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.1.0")")
+            Text("DRIFT  /  \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.2.0")")
                 .font(.system(size: 9, weight: .medium, design: .monospaced)).tracking(1.5).foregroundStyle(.secondary)
         }.padding(22).frame(width: 190).background(panel.opacity(0.55))
     }
@@ -203,6 +203,37 @@ struct LibraryView: View {
                     }.labelsHidden().frame(width: 180).accessibilityIdentifier("language-picker")
                 }
                 Text(t("settings.language.hint")).font(.system(size: 10)).foregroundStyle(.secondary)
+            }
+            settingsGroup("background.title", icon: "lock.display") {
+                Text(t("background.description")).font(.system(size: 11)).foregroundStyle(.secondary).lineSpacing(3)
+                Toggle(t("background.sync"), isOn: Binding(get: { model.settings.syncSystemBackground }, set: { value in model.update { $0.syncSystemBackground = value } }))
+                    .toggleStyle(.switch)
+                if model.selected != nil {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text(t("background.frame")).font(.system(size: 11))
+                            Spacer()
+                            Text(String(format: "%.1f", model.posterFrameSeconds) + " " + t("metadata.seconds")).font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary)
+                        }
+                        Slider(value: $model.posterFrameSeconds, in: 0...max(0.1, model.maximumPosterTime))
+                            .accessibilityLabel(t("background.frame"))
+                    }
+                }
+                HStack {
+                    Button(t("background.applyFrame")) { model.applySelectedFrame() }
+                        .disabled(model.selected == nil || model.backgroundBusy)
+                    Button(t("background.choosePhoto"), action: model.chooseBackgroundPhoto).disabled(model.backgroundBusy)
+                    if model.backgroundBusy { ProgressView().controlSize(.small) }
+                }
+                if let status = model.backgroundStatus {
+                    Text(status.label(using: model.localizer)).font(.system(size: 10)).foregroundStyle(accent)
+                }
+                HStack {
+                    Button(t("background.restore"), action: model.restoreSystemBackground).disabled(!model.backgroundCanRestore || model.backgroundBusy)
+                    Spacer()
+                    Button(t("background.settings"), action: model.openWallpaperSettings)
+                }.font(.system(size: 10))
+                Text(t("background.limitations")).font(.system(size: 10)).foregroundStyle(.secondary).lineSpacing(3)
             }
             settingsGroup("settings.quality", icon: "sparkles") {
                 HStack {

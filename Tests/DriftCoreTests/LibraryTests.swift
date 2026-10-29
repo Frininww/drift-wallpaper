@@ -22,6 +22,7 @@ final class LibraryTests: XCTestCase {
         state.settings.language = .russian
         state.settings.quality.resolution = .ultraHD
         state.settings.quality.frameRate = .fps120
+        state.settings.syncSystemBackground = true
         try LibraryStorage.save(state, to: file)
         XCTAssertEqual(try LibraryStorage.load(from: file), state)
         state.settings.fit = .fit
@@ -100,6 +101,7 @@ final class LibraryTests: XCTestCase {
         XCTAssertEqual(state.settings.fit, .fit)
         XCTAssertEqual(state.settings.language, .english)
         XCTAssertEqual(state.settings.quality, .init())
+        XCTAssertFalse(state.settings.syncSystemBackground)
     }
 
     func testUnknownLanguageFallsBackWithoutDiscardingSettings() throws {
