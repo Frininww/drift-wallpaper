@@ -1,0 +1,22 @@
+name: Build & test
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test playback policy and persistence
+        run: swift test
+      - name: Build universal app
+        run: bash scripts/build-app.sh --universal
+      - name: Package app
+        run: ditto -c -k --sequesterRsrc --keepParent dist/Drift.app dist/Drift-universal.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Drift-universal
+          path: dist/Drift-universal.zip
